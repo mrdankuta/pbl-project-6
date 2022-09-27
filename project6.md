@@ -219,3 +219,133 @@
 ---
 
 
+## Step 3 - Setup WordPress on Web Server
+
+- Update the repository:
+    ```
+    sudo yum -y update
+    ```
+- Install wget, Apache and needed dependencies:
+    ```
+    sudo yum -y install wget httpd php php-mysqlnd php-fpm php-json
+    ```
+- Start Apache webserver:
+    ```
+    sudo systemctl enable httpd
+    sudo systemctl start httpd
+    ```
+- Install PHP and it's dependencies:
+    ```
+    sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+    sudo yum install yum-utils http://rpms.remirepo.net/enterprise/remi-release-8.rpm
+    sudo yum module list php
+    sudo yum module reset php
+    sudo yum module enable php:remi-7.4
+    sudo yum install php php-opcache php-gd php-curl php-mysqlnd
+    sudo systemctl start php-fpm
+    sudo systemctl enable php-fpm
+    setsebool -P httpd_execmem 1
+    ```
+- Restart Apache:
+    ```
+    sudo systemctl restart httpd
+    ```
+- Download WordPress:
+    ```
+    mkdir wordpress && cd wordpress
+    sudo wget http://wordpress.org/latest.tar.gz
+    ```
+- Extract package:
+    ```
+    sudo tar xzvf latest.tar.gz
+    ```
+- Delete downloaded package:
+    ```
+    sudo rm -rf latest.tar.gz
+    ```
+- Create copy of `wp-config-sample.php`:
+    ```
+    cp wordpress/wp-config-sample.php wordpress/wp-config.php
+    ```
+- Copy `wordpress` directory to `var/www/html`:
+    ```
+    cp -R wordpress /var/www/html/
+    ```
+- Configure SELinux Policies:
+    ```
+    sudo chown -R apache:apache /var/www/html/wordpress
+    sudo chcon -t httpd_sys_rw_content_t /var/www/html/wordpress -R
+    sudo setsebool -P httpd_can_network_connect=1
+    ```
+
+---
+
+
+## Step 4 - Setup MySQL on Database Server
+
+- Update the repository:
+    ```
+    sudo yum -y update
+    ```
+- Install `mysql-server`:
+    ```
+    sudo yum install mysql-server
+    ```
+- Restart and enable service:
+    ```
+    sudo systemctl restart mysqld
+    sudo systemctl enable mysqld
+    ```
+
+---
+
+
+## Step 5 - Configure Database for WordPress
+
+- Enter MySQL console:
+    ```
+    sudo mysql
+    ```
+- Create Database called `wordpress`:
+    ```
+    CREATE DATABASE wordpress;
+    ```
+- Create user:
+    ```
+    CREATE USER `myuser`@`<private-ip>` IDENTIFIED BY 'mypassword';
+    ```
+- Grant database privileges to the user:
+    ```
+    GRANT ALL ON wordpress.* TO 'myuser'@'<private-ip>';
+    FLUSH PRIVILEGES;
+    exit
+    ```
+- Open port `3306` and allow access only to `webserver` 
+- Open and edit `mysql` configuration file:
+    ```
+    sudo vi /etc/my.cnf
+    ```
+- Insert the following settings:
+    ```
+    [mysqld]
+    Bind-address=0.0.0.0
+    ```
+
+---
+
+## Step 6 - Configure WordPress to Connect to Remote DB
+
+- Install `mysql-client` on `webserver`:
+    ```
+    sudo yum install mysql-client
+    ```
+- Login to remote database:
+    ```
+    sudo mysql -u myuser -p -h 172.31.23.81
+    ```
+    ![Remote DB Connect](./images/022-remote-db-connect-success.png)
+- Open port `80` on `webserver` for `http` access in EC2
+    ![port 80 Opening](./images/023-port-80-opening.png)
+- Edit `wp-config.php` and fill in database details
+- Visit <ip-address>/wordpress
+    ![WordPress Install Success](./images/024-connection-successful.png)
